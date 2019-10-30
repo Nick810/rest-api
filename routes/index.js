@@ -180,7 +180,6 @@ router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) 
       }
     }
   } catch (error) {
-    console.error(error)
     if (error.name === 'SequelizeValidationError') {
       const errorMessage = [];
       const err = new Error;
