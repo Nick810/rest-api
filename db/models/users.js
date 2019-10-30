@@ -35,20 +35,29 @@ module.exports = (sequelize) => {
     emailAddress: {
       type: Sequelize.STRING,
       allowNull: false,
-      isEmail: true,
       validate: {
         notNull: {
           msg: 'Please provide a value for "emailAddress"'
         },
         notEmpty: {
           msg: 'Please provide a value for "emailAddress"'
-        }
+        },
+        isEmail: {
+          msg: 'Please use the correct email format (example@email.com)'
+        },
       }
     },
     password: {
       type: Sequelize.STRING,
       allowNull: false,
-      len: [8, 16],
+      validate: {
+        notNull: {
+          msg: 'Please provide a value for "password"'
+        },
+        notEmpty: {
+          msg: 'Please provide a value for "password"'
+        }
+      }
     }
   }, { sequelize });
 
@@ -58,7 +67,7 @@ module.exports = (sequelize) => {
         fieldName: 'userId',
         allowNull: false
       }
-    });
+    })
   }
 
   return User
