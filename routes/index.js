@@ -115,7 +115,7 @@ router.get('/courses', asyncHandler(async(req, res, next) => {
 // Returns a course for the provided course ID
 router.get('/courses/:id', asyncHandler(async(req, res, next) => {
   try {
-    const allcourse = await Course.findAll();
+    const allcourseId = await Course.findAll().map(course => course.dataValues.id);
     const course = await Course.findAll({
      where: {
        id : req.params.id
@@ -133,12 +133,10 @@ router.get('/courses/:id', asyncHandler(async(req, res, next) => {
      ]
     });
 
-    if (parseInt(req.params.id) > allcourse.length + 1) {
-      res.json({
-        message: 'Sorry can\'t find the course you\'re looking for'
-      })
-    } else {
+    if (allcourseId.includes(parseInt(req.params.id))) {
       res.json(course);
+    } else {
+      res.status(400).json({ message: 'Sorry, can\'t find the course you\'re looking for' });
     }
   } catch (error) {
     next(error)
@@ -188,12 +186,19 @@ router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) 
       err.message = errorMessage;
       error.errors.forEach(error => errorMessage.push(error.message));
       next(err);
+    } else if (error.name === 'TypeError') {
+      const err = new Error;
+      err.status = 400;
+      err.message = 'Sorry, you can\'t edit the course that doesn\'t exist.'
+      next(err);
     }
   }
 }));
 
 // Delete a course
 router.delete('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) => {
+  const allcourse = await Course.findAll();
+
   try {
     const currentUser = req.currentUser;
     const course = await Course.findByPk(req.params.id);
@@ -205,7 +210,14 @@ router.delete('/courses/:id', authenticateUser, asyncHandler(async(req, res, nex
       res.status(403).json({ message: 'Sorry, you can only delete the course that you own.' })
     }
   } catch (error) {
-    next(error);
+    if (error.name === 'TypeError') {
+      const err = new Error;
+      err.status = 400;
+      err.message = 'Sorry, you can\'t delete the course that doesn\'t exist.'
+      next(err);
+    } else {
+      next(error);
+    }
   }
 }));
 
