@@ -149,7 +149,6 @@ router.get('/courses/:id', asyncHandler(async(req, res, next) => {
 router.post('/courses', authenticateUser, asyncHandler(async(req, res, next) => {
   try {
     const course = await Course.create(req.body);
-    // *********** Set the Location header to the URI **********
     res.status(201).location('/api/courses').end()
   } catch (error) {
     if (error.name === 'SequelizeValidationError') {
@@ -166,12 +165,11 @@ router.post('/courses', authenticateUser, asyncHandler(async(req, res, next) => 
 
 // Updates a courses
 router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) => {
-  try {
-    const course = await Course.findByPk(req.params.id);
+  const course = await Course.findByPk(req.params.id);
 
-    // *********** Handle empty body ***********
+  try {
     if (isEmpty(req.body)) {
-      res.status(400).json({ message: 'Please provide something to update' });
+      res.status(400).json({ message: 'Please "title" and "description" in body to update the course.' });
     } else {
       const currentUser = req.currentUser;
       if (currentUser[0].dataValues.id === course.dataValues.userId) {
@@ -182,7 +180,16 @@ router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) 
       }
     }
   } catch (error) {
-    next(err);
+    console.error(error)
+    if (error.name === 'SequelizeValidationError') {
+      const errorMessage = [];
+      const err = new Error;
+
+      err.status = 400;
+      err.message = errorMessage;
+      error.errors.forEach(error => errorMessage.push(error.message));
+      next(err);
+    }
   }
 }));
 
@@ -204,7 +211,3 @@ router.delete('/courses/:id', authenticateUser, asyncHandler(async(req, res, nex
 }));
 
 module.exports = router;
-
-
-// Use the Express next() function in each route handler to pass any Sequelize validation errors to the global error handler.
-// Send validation error(s) with a400 status code to the user.
