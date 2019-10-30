@@ -56,6 +56,10 @@ module.exports = (sequelize) => {
         },
         notEmpty: {
           msg: 'Please provide a value for "password"'
+        },
+        len: {
+          args: [8, 16],
+          msg: "Email address must be between 8 and 16 characters in length"
         }
       }
     }
