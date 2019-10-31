@@ -1,11 +1,12 @@
 const express = require('express');
 const bcryptjs = require('bcryptjs');
 const auth = require('basic-auth');
-const router = express.Router();
 const db = require('../db');
+const router = express.Router();
 const { User, Course } = db.models;
 
 // ---- Helper Functions ---- //
+// A function to handle async/await for each route.
 function asyncHandler(cb) {
   return async(req, res, next) => {
     try {
@@ -16,6 +17,7 @@ function asyncHandler(cb) {
   }
 }
 
+// A function to check if the object is empty or not. If yes, return true. Otherwise, return false.
 function isEmpty(obj) {
   for (let key in obj) {
     if(obj.hasOwnProperty(key))
@@ -24,6 +26,15 @@ function isEmpty(obj) {
   return true;
 }
 
+// A function to instantitate an error object, set the error's status code and messages.
+function instantiateError(statusCode, errorMessage) {
+  const error = new Error;
+  error.status = statusCode;
+  error.message = errorMessage;
+  return error;
+}
+
+// A function to authorize a user.
 const authenticateUser = async(req, res, next) => {
   const credentials = auth(req)
   let message;
@@ -54,7 +65,7 @@ const authenticateUser = async(req, res, next) => {
   }
 }
 
-// Returns the currently authenticated user
+// Returns the currently authenticated users' first and last name respectively.
 router.get('/users', authenticateUser, (req, res) => {
   const user = req.currentUser;
 
@@ -64,33 +75,29 @@ router.get('/users', authenticateUser, (req, res) => {
   })
 });
 
-// Create a user
+// Create a user, hash user's password prior to creation. If email is already taken, raise an error.
 router.post('/users', asyncHandler(async(req, res, next) => {
   try {
     if (req.body.emailAddress) {
-      const user = req.body;
-      user.password = bcryptjs.hashSync(user.password);
-      await User.create(user);
+      const newUser = req.body;
+      newUser.password = bcryptjs.hashSync(newUser.password);
+      await User.create(newUser);
       res.status(201).location('/').end();
     } else {
       await User.create(req.body);
     }
   } catch (error) {
     if (error.name === 'SequelizeValidationError') {
-      const errorMessage = [];
-      const err = new Error;
-
-      err.status = 400;
-      err.message = errorMessage;
-      error.errors.forEach(error => errorMessage.push(error.message));
+      const errorMessage = error.errors.map(error => error.message);
+      const err = instantiateError(400, errorMessage);
       next(err);
     } else if (error.name === 'SequelizeUniqueConstraintError') {
-      res.json({ message: 'That username is taken. Please try another.' })
+      res.status(400).json({ message: 'That email is already taken. Please try another.' })
     }
   }
 }));
 
-// Returns a list of courses
+// Returns a list of courses in database.
 router.get('/courses', asyncHandler(async(req, res, next) => {
   try {
     const courses = await Course.findAll({
@@ -112,7 +119,7 @@ router.get('/courses', asyncHandler(async(req, res, next) => {
   }
 }));
 
-// Returns a course for the provided course ID
+// Returns a course for the provided course ID.
 router.get('/courses/:id', asyncHandler(async(req, res, next) => {
   try {
     const allcourseId = await Course.findAll().map(course => course.dataValues.id);
@@ -143,31 +150,28 @@ router.get('/courses/:id', asyncHandler(async(req, res, next) => {
   }
 }));
 
-// Create a course
+// Create a course, set location header to the newly created course.
 router.post('/courses', authenticateUser, asyncHandler(async(req, res, next) => {
   try {
-    const course = await Course.create(req.body);
-    res.status(201).location('/api/courses').end()
+    await Course.create(req.body);
+    const latestCourse = await Course.findAll({ limit: 1, order: [[ 'createdAt', 'DESC' ]] });
+    res.status(201).location('/api/courses/' + latestCourse[0].dataValues.id).end()
   } catch (error) {
     if (error.name === 'SequelizeValidationError') {
-      const errorMessage = [];
-      const err = new Error;
-
-      err.status = 400;
-      err.message = errorMessage;
-      error.errors.forEach(error => errorMessage.push(error.message));
+      const errorMessage = error.errors.map(error => error.message);
+      const err = instantiateError(400, errorMessage);
       next(err);
     }
   }
 }));
 
-// Updates a courses
+// Updates a course, if the course doesn't exist, rasie an error.
 router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) => {
   const course = await Course.findByPk(req.params.id);
 
   try {
     if (isEmpty(req.body)) {
-      res.status(400).json({ message: 'Please "title" and "description" in body to update the course.' });
+      res.status(400).json({ message: 'Please provide "title" and "description" and their values in request body to update the course.' });
     } else {
       const currentUser = req.currentUser;
       if (currentUser[0].dataValues.id === course.dataValues.userId) {
@@ -179,23 +183,17 @@ router.put('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) 
     }
   } catch (error) {
     if (error.name === 'SequelizeValidationError') {
-      const errorMessage = [];
-      const err = new Error;
-
-      err.status = 400;
-      err.message = errorMessage;
-      error.errors.forEach(error => errorMessage.push(error.message));
+      const errorMessage = error.errors.map(error => error.message);
+      const err = instantiateError(400, errorMessage);
       next(err);
     } else if (error.name === 'TypeError') {
-      const err = new Error;
-      err.status = 400;
-      err.message = 'Sorry, you can\'t edit the course that doesn\'t exist.'
+      const err = instantiateError(400, 'Sorry, you can\'t edit the course that doesn\'t exist.')
       next(err);
     }
   }
 }));
 
-// Delete a course
+// Delete a course, if the course doesn't exist, rasie an error.
 router.delete('/courses/:id', authenticateUser, asyncHandler(async(req, res, next) => {
   const allcourse = await Course.findAll();
 
@@ -211,9 +209,7 @@ router.delete('/courses/:id', authenticateUser, asyncHandler(async(req, res, nex
     }
   } catch (error) {
     if (error.name === 'TypeError') {
-      const err = new Error;
-      err.status = 400;
-      err.message = 'Sorry, you can\'t delete the course that doesn\'t exist.'
+      const err = instantiateError(400, 'Sorry, you can\'t delete the course that doesn\'t exist.');
       next(err);
     } else {
       next(error);
