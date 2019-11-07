@@ -80,9 +80,23 @@ router.post('/users', asyncHandler(async(req, res, next) => {
   try {
     if (req.body.emailAddress) {
       const newUser = req.body;
-      newUser.password = bcryptjs.hashSync(newUser.password);
-      await User.create(newUser);
-      res.status(201).location('/').end();
+      
+      if (!/^[^@]+@[^@.]+\.[a-z]+$/i.test(newUser.emailAddress) && newUser.password === '') {
+        const err = instantiateError(400, ['Please use the correct email format (example@email.com)',
+                                           'Please provide a value for "password"'
+                                          ]);
+        next(err);
+      } else if (!/^[^@]+@[^@.]+\.[a-z]+$/i.test(newUser.emailAddress)) {
+        const err = instantiateError(400, ['Please use the correct email format (example@email.com)']);
+        next(err);
+      } else if (newUser.password === '') {
+        const err = instantiateError(400, ['Please provide a value for "password"']);
+        next(err);
+      } else {
+        newUser.password = bcryptjs.hashSync(newUser.password);
+        await User.create(newUser);
+        res.status(201).location('/').end();
+      }
     } else {
       await User.create(req.body);
     }
