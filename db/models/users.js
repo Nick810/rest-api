@@ -42,11 +42,6 @@ module.exports = (sequelize) => {
         notEmpty: {
           msg: 'Please provide a value for "emailAddress"'
         },
-        isCorrectFormat(input) {
-          if (!/^[^@]+@[^@.]+\.[a-z]+$/i.test(input)) {
-            throw new Error('Please use the correct email format (example@email.com)');
-          }
-        }
       }
     },
     password: {
